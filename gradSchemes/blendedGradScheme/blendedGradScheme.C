@@ -106,14 +106,19 @@ blendedGradScheme<Type>::blendedGradScheme
     }
 
     // Instantiate final schemes
-    {
         IStringStream is1(backgroundSpec);
         backgroundScheme_ = gradScheme<Type>::New(mesh, is1);
         IStringStream is2(blendedSpec);
         blendedScheme_ = gradScheme<Type>::New(mesh, is2);
+
+    if(mesh.time().value()==0)
+    {
+    Info<< "blendedGradScheme: background=" << backgroundSpec
+        << ", blended=" << blendedSpec
+        << ", field=" << blendingFieldName_ << endl;
+
     }
 }
-
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 template<class Type>
