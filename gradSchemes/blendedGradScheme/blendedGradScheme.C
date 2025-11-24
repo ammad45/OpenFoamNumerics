@@ -36,15 +36,9 @@ blendedGradScheme<Type>::blendedGradScheme
     gradScheme<Type>(mesh),
     blendingFieldName_("gradSchemeBlending")
 {
-    // Defaults: instantiate leastSquares and Gauss linear
-    {
-        backgroundSpec_ = "leastSquares";
-        blendedSpec_ = "Gauss linear";
-        IStringStream is1(backgroundSpec_);
-        backgroundScheme_ = gradScheme<Type>::New(mesh, is1);
-        IStringStream is2(blendedSpec_);
-        blendedScheme_ = gradScheme<Type>::New(mesh, is2);
-    }
+    // Collect scheme specifications (arbitrary-length) then instantiate
+    string backgroundSpec = "leastSquares";
+    string blendedSpec = "Gauss linear";
 
     // Prefer dictionary-style configuration for arbitrary-length schemes
     if (!schemeData.eof())
@@ -58,31 +52,27 @@ blendedGradScheme<Type>::blendedGradScheme
             if (const entry* e1 = dict.findEntry("scheme1", keyType::LITERAL))
             {
                 ITstream& es = e1->stream();
-                backgroundSpec_.clear();
+                backgroundSpec.clear();
                 while (!es.eof())
                 {
                     token tk(es);
-                    if (tk.isWord()) backgroundSpec_ += (backgroundSpec_.empty()? "" : " ") + tk.wordToken();
-                    else if (tk.isNumber()) backgroundSpec_ += (backgroundSpec_.empty()? "" : " ") + name(tk.number());
-                    else if (tk.isString()) backgroundSpec_ += (backgroundSpec_.empty()? "" : " ") + tk.stringToken();
+                    if (tk.isWord()) backgroundSpec += (backgroundSpec.empty()? "" : " ") + tk.wordToken();
+                    else if (tk.isNumber()) backgroundSpec += (backgroundSpec.empty()? "" : " ") + name(tk.number());
+                    else if (tk.isString()) backgroundSpec += (backgroundSpec.empty()? "" : " ") + tk.stringToken();
                 }
-                IStringStream is(backgroundSpec_);
-                backgroundScheme_.reset(gradScheme<Type>::New(mesh, is));
             }
 
             if (const entry* e2 = dict.findEntry("scheme2", keyType::LITERAL))
             {
                 ITstream& es = e2->stream();
-                blendedSpec_.clear();
+                blendedSpec.clear();
                 while (!es.eof())
                 {
                     token tk(es);
-                    if (tk.isWord()) blendedSpec_ += (blendedSpec_.empty()? "" : " ") + tk.wordToken();
-                    else if (tk.isNumber()) blendedSpec_ += (blendedSpec_.empty()? "" : " ") + name(tk.number());
-                    else if (tk.isString()) blendedSpec_ += (blendedSpec_.empty()? "" : " ") + tk.stringToken();
+                    if (tk.isWord()) blendedSpec += (blendedSpec.empty()? "" : " ") + tk.wordToken();
+                    else if (tk.isNumber()) blendedSpec += (blendedSpec.empty()? "" : " ") + name(tk.number());
+                    else if (tk.isString()) blendedSpec += (blendedSpec.empty()? "" : " ") + tk.stringToken();
                 }
-                IStringStream is(blendedSpec_);
-                blendedScheme_.reset(gradScheme<Type>::New(mesh, is));
             }
         }
         else
@@ -90,38 +80,38 @@ blendedGradScheme<Type>::blendedGradScheme
             // Fallback: positional tokens
             schemeData.putBack(t0);
             // First token -> scheme1, remainder -> scheme2 (best-effort fallback)
-            backgroundSpec_.clear();
-            blendedSpec_.clear();
+            backgroundSpec.clear();
+            blendedSpec.clear();
             if (!schemeData.eof())
             {
                 token t1(schemeData);
                 if (!t1.isPunctuation())
                 {
-                    if (t1.isWord()) backgroundSpec_ = t1.wordToken();
-                    else if (t1.isNumber()) backgroundSpec_ = name(t1.number());
-                    else if (t1.isString()) backgroundSpec_ = t1.stringToken();
+                    if (t1.isWord()) backgroundSpec = t1.wordToken();
+                    else if (t1.isNumber()) backgroundSpec = name(t1.number());
+                    else if (t1.isString()) backgroundSpec = t1.stringToken();
                 }
             }
             while (!schemeData.eof())
             {
                 token tk(schemeData);
                 if (tk.isPunctuation()) break;
-                if (tk.isWord()) blendedSpec_ += (blendedSpec_.empty()? "" : " ") + tk.wordToken();
-                else if (tk.isNumber()) blendedSpec_ += (blendedSpec_.empty()? "" : " ") + name(tk.number());
-                else if (tk.isString()) blendedSpec_ += (blendedSpec_.empty()? "" : " ") + tk.stringToken();
+                if (tk.isWord()) blendedSpec += (blendedSpec.empty()? "" : " ") + tk.wordToken();
+                else if (tk.isNumber()) blendedSpec += (blendedSpec.empty()? "" : " ") + name(tk.number());
+                else if (tk.isString()) blendedSpec += (blendedSpec.empty()? "" : " ") + tk.stringToken();
             }
-            if (backgroundSpec_.empty()) backgroundSpec_ = "leastSquares";
-            if (blendedSpec_.empty()) blendedSpec_ = "Gauss linear";
-            IStringStream is1(backgroundSpec_);
-            backgroundScheme_.reset(gradScheme<Type>::New(mesh, is1));
-            IStringStream is2(blendedSpec_);
-            blendedScheme_.reset(gradScheme<Type>::New(mesh, is2));
+            if (backgroundSpec.empty()) backgroundSpec = "leastSquares";
+            if (blendedSpec.empty()) blendedSpec = "Gauss linear";
         }
     }
 
-    Info<< "blendedGradScheme: background=" << backgroundSpec_
-        << ", blended=" << blendedSpec_
-        << ", field=" << blendingFieldName_ << endl;
+    // Instantiate final schemes
+    {
+        IStringStream is1(backgroundSpec);
+        backgroundScheme_ = gradScheme<Type>::New(mesh, is1);
+        IStringStream is2(blendedSpec);
+        blendedScheme_ = gradScheme<Type>::New(mesh, is2);
+    }
 }
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

@@ -65,10 +65,6 @@ class blendedGradScheme
         //- Blended scheme (used when β=1)
         tmp<fv::gradScheme<Type>> blendedScheme_;
 
-        //- Original textual specs (for logging)
-        string backgroundSpec_;
-        string blendedSpec_;
-
         //- Name of blending field (default: gradSchemeBlending)
         word blendingFieldName_;
 
