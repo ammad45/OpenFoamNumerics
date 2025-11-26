@@ -77,9 +77,9 @@ blendedGradScheme<Type>::blendedGradScheme
         }
         else
         {
-            // Fallback: positional tokens
+            // Fallback to having first value as background scheme and rest as second scheme
             schemeData.putBack(t0);
-            // First token -> scheme1, remainder -> scheme2 (best-effort fallback)
+            
             backgroundSpec.clear();
             blendedSpec.clear();
             if (!schemeData.eof())
@@ -105,12 +105,13 @@ blendedGradScheme<Type>::blendedGradScheme
         }
     }
 
-    // Instantiate final schemes
+    
         IStringStream is1(backgroundSpec);
         backgroundScheme_ = gradScheme<Type>::New(mesh, is1);
         IStringStream is2(blendedSpec);
         blendedScheme_ = gradScheme<Type>::New(mesh, is2);
-
+//Here we can change the time to 1 also if we want to write the scheme names at time 1 or comment the if statement
+//if we want to write it for every timestep
     if(mesh.time().value()==0)
     {
     Info<< "blendedGradScheme: background=" << backgroundSpec
@@ -196,7 +197,7 @@ blendedGradScheme<Type>::calcGrad
     );
     GradFieldType& g = tresult.ref();
 
-    // Smooth blending: g = (1-β)*background + β*blended
+    // Smooth blending: g = (1-beta)*background + beta*blended
     forAll(g, cellI)
     {
         const scalar b = max(min(beta[cellI], scalar(1)), scalar(0));  // Clamp to [0,1]
@@ -206,7 +207,7 @@ blendedGradScheme<Type>::calcGrad
     // Boundaries: use blended scheme (or could blend based on boundary field if needed)
     g.boundaryFieldRef() = gBlended.boundaryField();
 
-    // Correct boundary conditions
+    
     g.correctBoundaryConditions();
 
     return tresult;
@@ -214,8 +215,8 @@ blendedGradScheme<Type>::calcGrad
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-} // End namespace fv
-} // End namespace Foam
+} 
+} 
 
 // ************************************************************************* //
 
