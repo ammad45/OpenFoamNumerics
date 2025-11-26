@@ -151,7 +151,7 @@ blendedGradScheme<Type>::calcGrad
             //IOobject::REGISTER
         );
 
-        if (fieldHeader.headerOk())
+        if (fieldHeader.typeHeaderOk<volScalarField>(true))
         {
             auto* vfPtr = new volScalarField(fieldHeader, mesh);
             //regIOobject::store(vfPtr);

@@ -62,7 +62,7 @@ using namespace Foam;
 scalar aspectRatio(const fvMesh& mesh, label cellI)
 {
     const vector& C0 = mesh.C()[cellI];
-    const labelList& cf = mesh().cells()[cellI];
+    const labelList& cf = mesh.cells()[cellI];
     const labelUList& own = mesh.owner();
     const labelUList& nei = mesh.neighbour();
     const label nInt = mesh.nInternalFaces();
