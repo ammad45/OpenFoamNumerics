@@ -48,8 +48,8 @@ blendedGradScheme<Type>::blendedGradScheme
         {
             schemeData.putBack(t0);
             dictionary dict(schemeData);
-
-            if (const entry* e1 = dict.findEntry("scheme1", keyType::LITERAL))
+            const entry* e1 = dict.found("scheme1") ? &dict.lookupEntry(word("scheme1"),false ,false) : nullptr;
+            if (e1)
             {
                 ITstream& es = e1->stream();
                 backgroundSpec.clear();
@@ -61,8 +61,9 @@ blendedGradScheme<Type>::blendedGradScheme
                     else if (tk.isString()) backgroundSpec += (backgroundSpec.empty()? "" : " ") + tk.stringToken();
                 }
             }
-
-            if (const entry* e2 = dict.findEntry("scheme2", keyType::LITERAL))
+           
+            const entry* e2 = dict.found("scheme2") ? &dict.lookupEntry(word("scheme2"),false ,false) : nullptr;
+            if (e2)
             {
                 ITstream& es = e2->stream();
                 blendedSpec.clear();
@@ -135,7 +136,7 @@ blendedGradScheme<Type>::calcGrad
     const fvMesh& mesh = this->mesh();
 
     // Look up blending field (and try to read/register if missing)
-    const volScalarField* blendingPtr = mesh.findObject<volScalarField>(blendingFieldName_);
+    const volScalarField* blendingPtr = mesh.foundObject<volScalarField>(blendingFieldName_) ? &mesh.lookupObject<volScalarField>(blendingFieldName_) : nullptr;
     if (!blendingPtr)
     {
         // Try to locate in the most suitable time directory
@@ -146,14 +147,14 @@ blendedGradScheme<Type>::calcGrad
             inst,
             mesh,
             IOobject::READ_IF_PRESENT,
-            IOobject::NO_WRITE,
-            IOobject::REGISTER
+            IOobject::NO_WRITE
+            //IOobject::REGISTER
         );
 
-        if (fieldHeader.typeHeaderOk<volScalarField>(true, true, false))
+        if (fieldHeader.headerOk())
         {
             auto* vfPtr = new volScalarField(fieldHeader, mesh);
-            regIOobject::store(vfPtr);
+            //regIOobject::store(vfPtr);
             blendingPtr = vfPtr;
         }
     }

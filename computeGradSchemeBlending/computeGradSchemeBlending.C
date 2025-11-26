@@ -37,16 +37,32 @@ Usage
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
+//#include "fvCFD.H"
+// #include "DemandDrivenMeshObject.H"
+ #include "surfaceFields.H"
+ #include "volFields.H"
+#include "fvMesh.H"
 #include "mathematicalConstants.H"
 #include "cellQuality.H"
+//#include "scalar.H"
+//#include "label.H"
+#include "argList.H"
+//#include "CompactListList.H"
+//#include "systemDict.H"
+//#include "cellSet.H"
+//#include "faceSet.H"
+//#include "Time.H"
+#include "zeroGradientFvPatchFields.H"
+
+
+using namespace Foam;
 
 // Helper functions (reused from hybridLsqGG logic)
 
-scalar aspectRatio(const fvMesh& mesh, const label cellI)
+scalar aspectRatio(const fvMesh& mesh, label cellI)
 {
     const vector& C0 = mesh.C()[cellI];
-    const labelList& cf = mesh.cells()[cellI];
+    const labelList& cf = mesh().cells()[cellI];
     const labelUList& own = mesh.owner();
     const labelUList& nei = mesh.neighbour();
     const label nInt = mesh.nInternalFaces();
@@ -212,7 +228,7 @@ scalar betaLsqQuality(const fvMesh& mesh, const label cellI, const scalar lsqEig
 
 int main(int argc, char *argv[])
 {
-    #include "addCheckCaseOptions.H"
+    //#include "addCheckCaseOptions.H"
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
@@ -233,11 +249,16 @@ int main(int argc, char *argv[])
 
     // Parse optional helpers
     bool useAspect = blendingDict.found("aspect");
-    scalar aspectThresh = useAspect ? blendingDict.get<scalar>("aspect") : 10.0;
+    //scalar aspectThresh = useAspect ? blendingDict.lookup<scalar>("aspect") : 10.0;
+    scalar aspectThresh = 10;
+    if (useAspect)
+    {
+    	aspectThresh = readScalar(blendingDict.lookup("aspect"));
+    
+    }
 
-    bool useChevron = blendingDict.found("chevron");
-    word chevronVal = useChevron ? blendingDict.get<word>("chevron") : word("off");
-    useChevron = (chevronVal == "on" || chevronVal == "true" || chevronVal == "1");
+    const word chevronVal = blendingDict.lookupOrDefault<word>("chevron", "off" );
+    bool useChevron = (chevronVal == "on" || chevronVal == "true" || chevronVal == "1");
 
     bool useFlat = blendingDict.found("flat");
     scalar flatNCF = 0.2;
@@ -245,14 +266,14 @@ int main(int argc, char *argv[])
     if (useFlat)
     {
         // Find the 'flat' entry and interpret as dict, stream (list), or scalar
-        const entry* ePtr = blendingDict.findEntry("flat", keyType::LITERAL);
-        if (ePtr)
-        {
-            if (ePtr->isDict())
+        const entry* ePtr = blendingDict.found("flat") ? &blendingDict.lookupEntry(word("flat"), false, false) : nullptr;
+        if(ePtr)
+	{
+	    if (ePtr->isDict())
             {
                 const dictionary& flatDict = ePtr->dict();
-                flatNCF = flatDict.get<scalar>("NCF");
-                flatDecay = flatDict.getOrDefault<scalar>("decay", 2.0);
+                flatNCF = flatDict.lookupOrDefault<scalar>("NCF",0.2);
+                flatDecay = flatDict.lookupOrDefault<scalar>("decay", 2.0);
             }
             else if (ePtr->isStream())
             {
@@ -266,13 +287,13 @@ int main(int argc, char *argv[])
             }
             else
             {
-                flatNCF = blendingDict.get<scalar>("flat");
+                flatNCF = blendingDict.lookup<scalar>("flat");
             }
-        }
+	}    
     }
 
     bool useLsqRatio = blendingDict.found("lsq");
-    scalar lsqEigenRatioMin = useLsqRatio ? blendingDict.get<scalar>("lsq") : 2.0;
+    scalar lsqEigenRatioMin = useLsqRatio ? blendingDict.lookup<scalar>("lsq") : 2.0;
 
     // Optional smoothing of the resulting blending field
     bool doSmooth = blendingDict.found("smooth");
@@ -282,19 +303,19 @@ int main(int argc, char *argv[])
     bool preserveOne = false;
     if (blendingDict.found("preserveOne"))
     {
-        const word v = blendingDict.get<word>("preserveOne");
+        const word v = blendingDict.lookup<word>("preserveOne");
         preserveOne = (v == "yes" || v == "on" || v == "true" || v == "1");
     }
     if (doSmooth)
     {
-        const entry* ePtr = blendingDict.findEntry("smooth", keyType::LITERAL);
+        const entry* ePtr = blendingDict.found("smooth") ? &blendingDict.lookupEntry(word("smooth"),false , false) : nullptr;
         if (ePtr)
         {
             if (ePtr->isDict())
             {
                 const dictionary& sDict = ePtr->dict();
-                smoothW = sDict.getOrDefault<scalar>("weight", 1.0);
-                smoothPasses = sDict.getOrDefault<label>("passes", 1);
+                smoothW = sDict.lookupOrDefault<scalar>("weight", 1.0);
+                smoothPasses = sDict.lookupOrDefault<label>("passes", 1);
             }
             else if (ePtr->isStream())
             {
@@ -310,9 +331,9 @@ int main(int argc, char *argv[])
 
     // Optional gating: force background (beta=0) on poor-quality cells
     bool useNonOrthGate = blendingDict.found("nonOrth");
-    scalar nonOrthTolDeg = useNonOrthGate ? blendingDict.get<scalar>("nonOrth") : 0.0; // degrees
+    scalar nonOrthTolDeg = useNonOrthGate ? blendingDict.lookup<scalar>("nonOrth") : 0.0; // degrees
     bool useSkewGate = blendingDict.found("skew");
-    scalar skewTol = useSkewGate ? blendingDict.get<scalar>("skew") : 0.0; // meshQuality skewness (unitless)
+    scalar skewTol = useSkewGate ? blendingDict.lookup<scalar>("skew") : 0.0; // meshQuality skewness (unitless)
 
     Info<< "Blending criteria:" << nl
         << "  aspect: " << (useAspect ? "on (threshold: " + name(aspectThresh) + ")" : "off") << nl
@@ -336,7 +357,8 @@ int main(int argc, char *argv[])
         ),
         mesh,
         dimensionedScalar(dimless, 0.0),  // Default: all background scheme
-        fvPatchFieldBase::zeroGradientType()
+        word("zeroGradient")
+	//fvPatchFieldBase::zeroGradientType()
     );
 
     scalarField& beta = blending.primitiveFieldRef();
