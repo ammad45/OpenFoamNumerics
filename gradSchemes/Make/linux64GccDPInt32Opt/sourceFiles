@@ -1,3 +1,2 @@
+SOURCE = \
 blendedGradScheme/blendedGradSchemes.C
-
-LIB = $(FOAM_USER_LIBBIN)/libnumerics

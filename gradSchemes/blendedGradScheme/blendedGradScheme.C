@@ -9,14 +9,14 @@
 
 #include "blendedGradScheme.H"
 #include "gradScheme.H"
-#include "IStringStream.H"
-#include "volFields.H"
-#include "dictionary.H"
-#include "string.H"
-#include "regIOobject.H"
-#include "surfaceFields.H"
-#include "HashTable.H"
-
+//#include "IStringStream.H"
+//#include "volFields.H"
+//#include "dictionary.H"
+//#include "string.H"
+//#include "regIOobject.H"
+//#include "surfaceFields.H"
+//#include "HashTable.H"
+//#include "extrapolatedCalculatedFvPatchField.H"
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
@@ -49,7 +49,7 @@ blendedGradScheme<Type>::blendedGradScheme
             schemeData.putBack(t0);
             dictionary dict(schemeData);
 
-            if (const entry* e1 = dict.findEntry("scheme1", keyType::LITERAL))
+            if (const entry* e1 = dict.lookupEntryPtr("scheme1", false , false))
             {
                 ITstream& es = e1->stream();
                 backgroundSpec.clear();
@@ -62,7 +62,7 @@ blendedGradScheme<Type>::blendedGradScheme
                 }
             }
 
-            if (const entry* e2 = dict.findEntry("scheme2", keyType::LITERAL))
+            if (const entry* e2 = dict.lookupEntryPtr("scheme2",false,false))
             {
                 ITstream& es = e2->stream();
                 blendedSpec.clear();
@@ -133,10 +133,10 @@ blendedGradScheme<Type>::calcGrad
     typedef typename outerProduct<vector, Type>::type GradType;
     typedef GeometricField<GradType, fvPatchField, volMesh> GradFieldType;
 
-    const fvMesh& mesh = this->mesh();
+    const fvMesh& mesh = vsf.mesh();
 
     // Look up blending field (and try to read/register if missing)
-    const volScalarField* blendingPtr = mesh.findObject<volScalarField>(blendingFieldName_);
+    const volScalarField* blendingPtr = mesh.foundObject<volScalarField>(blendingFieldName_) ? &mesh.lookupObject<volScalarField>(blendingFieldName_) : nullptr;
     if (!blendingPtr)
     {
         // Try to locate in the most suitable time directory
@@ -147,11 +147,10 @@ blendedGradScheme<Type>::calcGrad
             inst,
             mesh,
             IOobject::READ_IF_PRESENT,
-            IOobject::NO_WRITE,
-            IOobject::REGISTER
+            IOobject::NO_WRITE
         );
 
-        if (fieldHeader.typeHeaderOk<volScalarField>(true, true, false))
+        if (fieldHeader.headerOk())
         {
             auto* vfPtr = new volScalarField(fieldHeader, mesh);
             regIOobject::store(vfPtr);
@@ -169,7 +168,7 @@ blendedGradScheme<Type>::calcGrad
     }
 
     const volScalarField& blending = *blendingPtr;
-    const scalarField& beta = blending.primitiveField();
+    const scalarField& beta = blending.internalField();
 
     // Compute both gradients from stored schemes
     tmp<GradFieldType> tbackground = backgroundScheme_().calcGrad(vsf, name + ":background");
@@ -192,11 +191,37 @@ blendedGradScheme<Type>::calcGrad
                 IOobject::NO_WRITE
             ),
             mesh,
-            dimensioned<GradType>(vsf.dimensions()/dimLength, Zero)
+
+            dimensioned<GradType>("0", vsf.dimensions()/dimLength, pTraits<GradType>::zero)
         )
     );
-    GradFieldType& g = tresult.ref();
+    GradFieldType& g = tresult();
 
+
+/*
+    GeometricField<GradType, fvPatchField, volMesh> tresult
+    (
+        new GeometricField<GradType, fvPatchField, volMesh>
+        (
+            IOobject
+            (
+                name,
+                vsf.instance(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            mesh,
+            dimensioned<GradType>
+            (
+                "0",
+                vsf.dimensions()/dimLength,
+                pTraits<GradType>::zero
+            )
+        )
+    );
+    GeometricField<GradType, fvPatchField, volMesh>& g = tresult();
+*/
     // Smooth blending: g = (1-beta)*background + beta*blended
     forAll(g, cellI)
     {
@@ -205,7 +230,7 @@ blendedGradScheme<Type>::calcGrad
     }
 
     // Boundaries: use blended scheme (or could blend based on boundary field if needed)
-    g.boundaryFieldRef() = gBlended.boundaryField();
+    g.boundaryField() = gBlended.boundaryField();
 
     
     g.correctBoundaryConditions();

@@ -11,8 +11,13 @@
 #include "blendedGradScheme.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
+namespace Foam
+{
+namespace fv
+{
 makeFvGradScheme(blendedGradScheme)
+}
+}
 
 // ************************************************************************* //
 

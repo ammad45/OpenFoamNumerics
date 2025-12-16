@@ -40,7 +40,7 @@ Usage
 #include "fvCFD.H"
 #include "mathematicalConstants.H"
 #include "cellQuality.H"
-
+#include "zeroGradientFvPatchFields.H"
 // Helper functions (reused from hybridLsqGG logic)
 
 scalar aspectRatio(const fvMesh& mesh, const label cellI)
@@ -95,7 +95,7 @@ scalar betaChevron(const fvMesh& mesh, const label cellI)
     forAll(cf, i)
     {
         const label fI = cf[i];
-        vector ds(Zero);
+        vector ds(vector::zero);
         if (fI < nInt)
         {
             const label o = own[fI];
@@ -142,7 +142,7 @@ scalar maxSkewAngleDeg(const fvMesh& mesh, const label cellI)
     forAll(cFaces, i)
     {
         const label fI = cFaces[i];
-        vector AB(Zero);
+        vector AB(vector::zero);
         if (fI < nInt)
         {
             const label o = own[fI];
@@ -157,7 +157,7 @@ scalar maxSkewAngleDeg(const fvMesh& mesh, const label cellI)
         const vector dcf = Cf[fI] - C0;
         const scalar c = (mag(AB) > SMALL && mag(dcf) > SMALL) ? (dcf & AB)/(mag(dcf)*mag(AB)) : 1;
         const scalar ang = Foam::acos(max(min(c, scalar(1)), scalar(-1)))
-                         * (180.0/Foam::constant::mathematical::pi);
+                         * (180.0/Foam::mathematicalConstant::pi);
         if (ang > amax) amax = ang;
     }
     return amax;
@@ -166,7 +166,7 @@ scalar maxSkewAngleDeg(const fvMesh& mesh, const label cellI)
 scalar betaFlatCurvature(const fvMesh& mesh, const label cellI, const scalar flatNCF, const scalar flatDecay)
 {
     const scalar ang = maxSkewAngleDeg(mesh, cellI);
-    const scalar t = Foam::tan(ang*Foam::constant::mathematical::pi/180.0);
+    const scalar t = Foam::tan(ang*Foam::mathematicalConstant::pi/180.0);
     const scalar ar = aspectRatio(mesh, cellI);
     const scalar tau = flatNCF*ar;
     if (t <= tau) return 1.0;
@@ -179,7 +179,7 @@ scalar betaLsqQuality(const fvMesh& mesh, const label cellI, const scalar lsqEig
 {
     const vectorField& C = mesh.C();
     const labelList& cf = mesh.cells()[cellI];
-    symmTensor dd(Zero);
+    symmTensor dd(symmTensor::zero);
     const labelUList& own = mesh.owner();
     const labelUList& nei = mesh.neighbour();
     const label nInt = mesh.nInternalFaces();
@@ -187,7 +187,7 @@ scalar betaLsqQuality(const fvMesh& mesh, const label cellI, const scalar lsqEig
     forAll(cf, i)
     {
         const label fI = cf[i];
-        vector d(Zero);
+        vector d(vector::zero);
         if (fI < nInt)
         {
             const label o = own[fI];
@@ -212,10 +212,10 @@ scalar betaLsqQuality(const fvMesh& mesh, const label cellI, const scalar lsqEig
 
 int main(int argc, char *argv[])
 {
-    #include "addCheckCaseOptions.H"
+    #include "addRegionOption.H"
     #include "setRootCase.H"
     #include "createTime.H"
-    #include "createMesh.H"
+    #include "createNamedMesh.H"
 
     Info<< "Reading gradSchemeBlendingDict\n" << endl;
 
@@ -233,26 +233,27 @@ int main(int argc, char *argv[])
 
     // Parse optional helpers
     bool useAspect = blendingDict.found("aspect");
-    scalar aspectThresh = useAspect ? blendingDict.get<scalar>("aspect") : 10.0;
-
+       
+    scalar aspectThresh = useAspect ? readScalar(blendingDict.lookup("aspect")) : 10.0 ;
+ 
     bool useChevron = blendingDict.found("chevron");
-    word chevronVal = useChevron ? blendingDict.get<word>("chevron") : word("off");
+    word chevronVal = useChevron ? blendingDict.lookup("chevron") : word("off");
     useChevron = (chevronVal == "on" || chevronVal == "true" || chevronVal == "1");
 
     bool useFlat = blendingDict.found("flat");
     scalar flatNCF = 0.2;
     scalar flatDecay = 2.0;
-    if (useFlat)
+    /*if (useFlat)
     {
         // Find the 'flat' entry and interpret as dict, stream (list), or scalar
-        const entry* ePtr = blendingDict.findEntry("flat", keyType::LITERAL);
+        const entry* ePtr = blendingDict.lookupEntryPtr("flat");
         if (ePtr)
         {
             if (ePtr->isDict())
             {
                 const dictionary& flatDict = ePtr->dict();
-                flatNCF = flatDict.get<scalar>("NCF");
-                flatDecay = flatDict.getOrDefault<scalar>("decay", 2.0);
+                flatNCF = flatDict.lookupOrDefault("NCF", 0.3);
+                flatDecay = flatDict.lookupOrDefault("decay", 2.0);
             }
             else if (ePtr->isStream())
             {
@@ -266,13 +267,56 @@ int main(int argc, char *argv[])
             }
             else
             {
-                flatNCF = blendingDict.get<scalar>("flat");
+                flatNCF = blendingDict.lookup("flat");
             }
         }
     }
+    */
+
+    if (useFlat)
+    {
+	    if (blendingDict.isDict("flat"))
+	    {
+		    const dictionary& flatDict = blendingDict.subDict("flat");
+		    flatNCF = flatDict.lookupOrDefault<scalar>("NCF", flatNCF);
+		    flatDecay = flatDict.lookupOrDefault<scalar>("decay", flatDecay);
+	    }
+	    else
+	    {
+		    const ITstream& is = blendingDict.lookup("flat");
+
+		    if (is.empty())
+		    {
+		    }
+
+		    else if (is.size() == 1 && is[0].isNumber())
+		    {
+			    flatNCF = scalar(is[0].number());
+		    }
+
+		    else
+		    {
+		      Istream& lis = const_cast<ITstream&>(is);
+
+		      lis >> flatNCF;
+
+		      if (!lis.eof())
+		      {
+			      lis >> flatDecay;
+		      }
+		    }
+
+	    }
+    }
+
 
     bool useLsqRatio = blendingDict.found("lsq");
-    scalar lsqEigenRatioMin = useLsqRatio ? blendingDict.get<scalar>("lsq") : 2.0;
+    scalar lsqEigenRatioMin = 2.0;
+    
+    if(useLsqRatio) 
+    { 
+	    blendingDict.lookupOrDefault("lsq", 2.0);
+    }
 
     // Optional smoothing of the resulting blending field
     bool doSmooth = blendingDict.found("smooth");
@@ -282,26 +326,40 @@ int main(int argc, char *argv[])
     bool preserveOne = false;
     if (blendingDict.found("preserveOne"))
     {
-        const word v = blendingDict.get<word>("preserveOne");
+        const word v = blendingDict.lookup("preserveOne");
         preserveOne = (v == "yes" || v == "on" || v == "true" || v == "1");
     }
     if (doSmooth)
     {
-        const entry* ePtr = blendingDict.findEntry("smooth", keyType::LITERAL);
-        if (ePtr)
+        if (blendingDict.isDict("smooth"))
+	{
+		const dictionary& sDict = blendingDict.subDict("smooth");
+		smoothW = sDict.lookupOrDefault("weight", 1.0);
+		smoothPasses = sDict.lookupOrDefault("passes", 1);
+	}
+        
+	else 
         {
-            if (ePtr->isDict())
-            {
-                const dictionary& sDict = ePtr->dict();
-                smoothW = sDict.getOrDefault<scalar>("weight", 1.0);
-                smoothPasses = sDict.getOrDefault<label>("passes", 1);
-            }
-            else if (ePtr->isStream())
-            {
-                // If a single scalar is provided, treat as weight
-                Istream& is = ePtr->stream();
-                token tk(is);
-                if (tk.isNumber()) { smoothW = scalar(tk.number()); }
+               const ITstream& ss = blendingDict.lookup("smooth");
+
+	      if (ss.empty()) 
+	      {
+	      }
+		
+	      else if (ss.size() == 1 && ss[0].isNumber())
+	      {
+		smoothW = scalar(ss[0].number());
+  	      }		
+	      else
+	      {
+		 Istream& lss = const_cast<ITstream&>(ss);
+
+	         lss >> smoothW;
+
+	         if(!lss.eof())
+		 {
+		 lss >> smoothPasses;
+		 }	 
             }
         }
         smoothW = max(min(smoothW, scalar(1)), scalar(0));
@@ -310,9 +368,9 @@ int main(int argc, char *argv[])
 
     // Optional gating: force background (beta=0) on poor-quality cells
     bool useNonOrthGate = blendingDict.found("nonOrth");
-    scalar nonOrthTolDeg = useNonOrthGate ? blendingDict.get<scalar>("nonOrth") : 0.0; // degrees
+    scalar nonOrthTolDeg = useNonOrthGate ? readScalar(blendingDict.lookup("nonOrth")) : 0.0; // degrees
     bool useSkewGate = blendingDict.found("skew");
-    scalar skewTol = useSkewGate ? blendingDict.get<scalar>("skew") : 0.0; // meshQuality skewness (unitless)
+    scalar skewTol = useSkewGate ? readScalar(blendingDict.lookup("skew")) : 0.0; // meshQuality skewness (unitless)
 
     Info<< "Blending criteria:" << nl
         << "  aspect: " << (useAspect ? "on (threshold: " + name(aspectThresh) + ")" : "off") << nl
@@ -335,11 +393,11 @@ int main(int argc, char *argv[])
             IOobject::AUTO_WRITE
         ),
         mesh,
-        dimensionedScalar(dimless, 0.0),  // Default: all background scheme
-        fvPatchFieldBase::zeroGradientType()
+        dimensionedScalar ("dimless", dimless, 0.0),  // Default: all background schemeM
+        zeroGradientFvPatchScalarField::typeName
     );
 
-    scalarField& beta = blending.primitiveFieldRef();
+    scalarField& beta = blending.internalField();
     beta = 0.0;  // Start with all background scheme (LSQ)
 
     Info<< "Computing blending factors..." << endl;
