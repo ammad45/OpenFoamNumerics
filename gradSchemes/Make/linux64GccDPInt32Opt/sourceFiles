@@ -1,0 +1,6 @@
+SOURCE = \
+hybridLeastSquares/hybridLeastSquaresGrads.C \
+hybridLeastSquares/hybridLeastSquaresVectors.C \
+blendedGradScheme/blendedGradSchemes.C \
+
+# sources
