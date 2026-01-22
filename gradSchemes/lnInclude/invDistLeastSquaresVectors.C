@@ -1,1 +1,1 @@
-../hybridLeastSquares/leastSquaresGrad/invDistLeastSquaresVectors.C
+../leastSquaresGrad/invDistLeastSquaresVectors.C

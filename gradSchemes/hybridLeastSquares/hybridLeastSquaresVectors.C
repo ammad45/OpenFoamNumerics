@@ -30,6 +30,8 @@ License
 #include "volFields.H"
 #include "regIOobject.H"
 #include "cpuTime.H"
+#include <exception>
+#include <mutex>
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -135,7 +137,7 @@ void Foam::hybridLeastSquaresVectors::calcLeastSquaresVectors()
 
 
     // Set up temporary storage for the dd tensor (before inversion)
-    symmTensorField dd(mesh_.nCells(), Zero);
+    tensorField dd(mesh_.nCells(), Zero);
 
     forAll(owner, facei)
     {
@@ -144,10 +146,10 @@ void Foam::hybridLeastSquaresVectors::calcLeastSquaresVectors()
         
         const vector d(C[nei] - C[own]);
         const scalar magSfByMagSqr = magSf[facei]/magSqr(d);
-        const symmTensor wddLsq(magSfByMagSqr*sqr(d));
+        const tensor wddLsq(magSfByMagSqr*sqr(d));
         
         const scalar t = mag((Cf[facei] - C[own]) & d)/(mag(d) + VSMALL);
-        const symmTensor wddGauss(symm(t*(Sf[facei]*d)));
+        const tensor wddGauss(t*(Sf[facei]*d));
         
         const scalar bOwn = betaPtr
             ? max(min((*betaPtr)[own], scalar(1)), scalar(0))
@@ -199,7 +201,7 @@ void Foam::hybridLeastSquaresVectors::calcLeastSquaresVectors()
                 const scalar t =
                     mag((pCf[patchFacei] - C[faceCells[patchFacei]]) & d)
                    /(mag(d) + VSMALL);
-                const symmTensor wddGauss(symm(t*(pSf[patchFacei]*d)));
+                const tensor wddGauss(t*(pSf[patchFacei]*d));
 
                 dd[faceCells[patchFacei]] +=
                     (1.0 - bFace)
@@ -225,7 +227,7 @@ void Foam::hybridLeastSquaresVectors::calcLeastSquaresVectors()
                 const scalar t =
                     mag((pCf[patchFacei] - C[faceCells[patchFacei]]) & d)
                    /(mag(d) + VSMALL);
-                const symmTensor wddGauss(symm(t*(pSf[patchFacei]*d)));
+                const tensor wddGauss(t*(pSf[patchFacei]*d));
 
                 dd[faceCells[patchFacei]] +=
                     (1.0 - bFace)*magSfByMagSqr*sqr(d)
@@ -236,7 +238,7 @@ void Foam::hybridLeastSquaresVectors::calcLeastSquaresVectors()
 
 
     // Invert the dd tensors - including failsafe checks
-    const symmTensorField invDd(inv(dd));
+    const tensorField invDd(inv(dd));
 
 
     // Revisit all faces and calculate the pVectors_ and nVectors_ vectors
