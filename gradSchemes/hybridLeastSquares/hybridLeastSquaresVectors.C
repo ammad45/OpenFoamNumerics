@@ -51,13 +51,13 @@ Foam::hybridLeastSquaresVectors::hybridLeastSquaresVectors(const fvMesh& mesh)
         IOobject
         (
             "HybridLeastSquaresP",
-            mesh_.pointsInstance(),
-            mesh_,
+            mesh.pointsInstance(),
+            mesh,
             IOobject::NO_READ,
             IOobject::NO_WRITE,
-            IOobject::NO_REGISTER
+            false
         ),
-        mesh_,
+        mesh,
         dimensionedVector(dimless/dimLength, Zero)
     ),
     nVectors_
@@ -65,13 +65,13 @@ Foam::hybridLeastSquaresVectors::hybridLeastSquaresVectors(const fvMesh& mesh)
         IOobject
         (
             "HybridLeastSquaresN",
-            mesh_.pointsInstance(),
-            mesh_,
+            mesh.pointsInstance(),
+            mesh,
             IOobject::NO_READ,
             IOobject::NO_WRITE,
-            IOobject::NO_REGISTER
+            false
         ),
-        mesh_,
+        mesh,
         dimensionedVector(dimless/dimLength, Zero)
     )
 {
@@ -92,11 +92,11 @@ void Foam::hybridLeastSquaresVectors::calcLeastSquaresVectors()
     cpuTime calcTimer;
     Info << "Calculating hybrid least square gradient vectors" << nl;
 
-    const fvMesh& mesh = mesh_;
+    const fvMesh& mesh = this->mesh();
 
     // Set local references to mesh data
-    const labelUList& owner = mesh_.owner();
-    const labelUList& neighbour = mesh_.neighbour();
+    const labelUList& owner = mesh.owner();
+    const labelUList& neighbour = mesh.neighbour();
 
     const volVectorField& C = mesh.C();
     const surfaceScalarField& w = mesh.weights();
@@ -107,24 +107,26 @@ void Foam::hybridLeastSquaresVectors::calcLeastSquaresVectors()
     // Optional blending field (0..1) to modify least-squares vectors
     const word blendingFieldName("gradSchemeBlending");
     const volScalarField* blendingPtr =
-        mesh.findObject<volScalarField>(blendingFieldName);
+        mesh.foundObject<volScalarField>(blendingFieldName)
+      ? &mesh.lookupObject<volScalarField>(blendingFieldName)
+      : nullptr;
 
     if (!blendingPtr)
     {
         const word inst =
             mesh.time().findInstance(mesh.dbDir(), blendingFieldName);
 
-        IOobject fieldHeader
+        typeIOobject<volScalarField> fieldHeader
         (
             blendingFieldName,
             inst,
             mesh,
             IOobject::READ_IF_PRESENT,
             IOobject::NO_WRITE,
-            IOobject::REGISTER
+            true
         );
 
-        if (fieldHeader.typeHeaderOk<volScalarField>(true, true, false))
+        if (fieldHeader.headerOk())
         {
             auto* vfPtr = new volScalarField(fieldHeader, mesh);
             regIOobject::store(vfPtr);
@@ -137,7 +139,7 @@ void Foam::hybridLeastSquaresVectors::calcLeastSquaresVectors()
 
 
     // Set up temporary storage for the dd tensor (before inversion)
-    tensorField dd(mesh_.nCells(), Zero);
+    tensorField dd(mesh.nCells(), Zero);
 
     forAll(owner, facei)
     {

@@ -73,7 +73,7 @@ hybridLeastSquares<Type>::calcGrad
             ),
             mesh,
             dimensioned<GradType>(vsf.dimensions()/dimLength, Zero),
-            fvPatchFieldBase::extrapolatedCalculatedType()
+            extrapolatedCalculatedFvPatchField<GradType>::typeName
         )
     );
     GradFieldType& lsGrad = tlsGrad.ref();

@@ -38,7 +38,7 @@ SourceFiles
 #ifndef hybridLeastSquaresVectors_H
 #define hybridLeastSquaresVectors_H
 
-#include "MeshObject.H"
+#include "DemandDrivenMeshObject.H"
 #include "fvMesh.H"
 #include "surfaceFields.H"
 
@@ -53,11 +53,11 @@ namespace Foam
 
 class hybridLeastSquaresVectors
 :
-    public MeshObject<fvMesh, MoveableMeshObject, hybridLeastSquaresVectors>
+    public DemandDrivenMeshObject<fvMesh, MoveableMeshObject, hybridLeastSquaresVectors>
 {
     // Private Typedefs
 
-        typedef MeshObject
+        typedef DemandDrivenMeshObject
         <
             fvMesh,
             MoveableMeshObject,
