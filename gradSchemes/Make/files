@@ -1,5 +1,9 @@
 hybridLeastSquares/hybridLeastSquaresGrads.C
 hybridLeastSquares/hybridLeastSquaresVectors.C
+hybridLeastSquares1/hybridLeastSquares1Grads.C
+hybridLeastSquares1/hybridLeastSquares1Vectors.C
+hybridFaceLeastSquares/hybridFaceLeastSquaresGrads.C
+hybridFaceLeastSquares/hybridFaceLeastSquaresVectors.C
 blendedGradScheme/blendedGradSchemes.C
 
 
